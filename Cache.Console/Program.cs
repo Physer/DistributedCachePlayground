@@ -16,7 +16,9 @@ namespace Cache.Console
             var stopwatch = new Stopwatch();
             stopwatch.Start();
             System.Console.WriteLine("Starting timer...");
-            await cacheService.Execute();
+
+            Parallel.For(0, 200, async _ => await cacheService.Execute());
+
             System.Console.WriteLine($"Time elapsed: {stopwatch.ElapsedMilliseconds} ms!");
             await host.RunAsync();
             System.Console.WriteLine("Goodbye cache");
