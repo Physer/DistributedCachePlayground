@@ -25,6 +25,15 @@ namespace Cache.Console
             _distributedCache = distributedCache;
         }
 
+        public async Task<ThreadExecutionResult> ExecuteFromOrigin()
+        {
+            var results = await GetCommentsFromOrigin();
+            return new ThreadExecutionResult
+            {
+                GotResultFromCache = false
+            };
+        }
+
         public async Task<ThreadExecutionResult> ExecuteWithoutLock() => await Execute();
 
         public async Task<ThreadExecutionResult> ExecuteWithLock()

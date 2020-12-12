@@ -22,6 +22,10 @@ namespace Cache.Console
             // Remove any existing cache entries
             await distributedCache.RemoveAsync(cacheKey);
 
+            // Execute a flow with only retrieving data from origin
+            var originResult = await Execute(commentService, false, true);
+            await distributedCache.RemoveAsync(cacheKey);
+
             // Execute the flow without any locks and clean up afterwards
             var noLockResult = await Execute(commentService, false);
             await distributedCache.RemoveAsync(cacheKey);
@@ -52,6 +56,15 @@ namespace Cache.Console
             System.Console.WriteLine($"|                                                                             |");
             System.Console.WriteLine($"| The elapsed time is presented                                               |");
             System.Console.WriteLine($"| at the end of the section                                                   |");
+            System.Console.WriteLine($"------------------------------------------------------------------------------");
+            System.Console.WriteLine($"|                                 -- --                                       |");
+            System.Console.WriteLine($"| From origin:                                                                |");
+            System.Console.WriteLine($"| Total amount of requests: {originResult.ThreadExecutionResults.Count()}");
+            System.Console.WriteLine($"| Requests to origin: {originResult.ThreadExecutionResults.Count(result => !result.GotResultFromCache)}");
+            System.Console.WriteLine($"| Requests to Redis: {originResult.ThreadExecutionResults.Count(result => result.GotResultFromCache)}");
+            System.Console.WriteLine($"| Elapsed miliseconds: {originResult.ElapsedMiliseconds} ms");
+            System.Console.WriteLine($"|                                 -- --                                       |");
+            System.Console.WriteLine($"------------------------------------------------------------------------------");
             System.Console.WriteLine($"|                                 -- --                                       |");
             System.Console.WriteLine($"| Without locking:                                                            |");
             System.Console.WriteLine($"| Total amount of requests: {noLockResult.ThreadExecutionResults.Count()}");
@@ -73,7 +86,7 @@ namespace Cache.Console
             await host.RunAsync();
         }
 
-        static async Task<ExecutionResult> Execute(CommentService commentService, bool withLock)
+        static async Task<ExecutionResult> Execute(CommentService commentService, bool withLock, bool alwaysUseOrigin = false)
         {
             var stopwatch = new Stopwatch();
             stopwatch.Start();
@@ -81,7 +94,9 @@ namespace Cache.Console
 
             System.Console.WriteLine("Without locking...");
             var requests = new ConcurrentBag<Task<ThreadExecutionResult>>();
-            Parallel.For(0, 200, _ => requests.Add(withLock ? commentService.ExecuteWithLock() : commentService.ExecuteWithoutLock()));
+            Parallel.For(0, 200, _ => requests.Add(alwaysUseOrigin ? 
+                                                    commentService.ExecuteFromOrigin() : 
+                                                    (withLock ? commentService.ExecuteWithLock() : commentService.ExecuteWithoutLock())));
             var threadResults = await Task.WhenAll(requests);
 
             System.Console.WriteLine($"Time elapsed: {stopwatch.ElapsedMilliseconds} ms!");
