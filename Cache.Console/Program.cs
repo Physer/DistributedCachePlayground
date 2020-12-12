@@ -1,5 +1,6 @@
 ﻿using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
+using System.Collections.Concurrent;
 using System.Diagnostics;
 using System.Threading.Tasks;
 
@@ -17,7 +18,9 @@ namespace Cache.Console
             stopwatch.Start();
             System.Console.WriteLine("Starting timer...");
 
-            Parallel.For(0, 200, async _ => await cacheService.Execute());
+            var requests = new ConcurrentBag<Task>();
+            Parallel.For(0, 200, _ => requests.Add(cacheService.Execute()));
+            await Task.WhenAll(requests);
 
             System.Console.WriteLine($"Time elapsed: {stopwatch.ElapsedMilliseconds} ms!");
             await host.RunAsync();
