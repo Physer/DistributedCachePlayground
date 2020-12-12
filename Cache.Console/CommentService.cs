@@ -5,6 +5,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Net.Http;
 using System.Text;
+using System.Threading;
 using System.Threading.Tasks;
 
 namespace Cache.Console
@@ -13,6 +14,7 @@ namespace Cache.Console
     {
         private readonly IHttpClientFactory _httpClientFactory;
         private readonly IDistributedCache _distributedCache;
+        private readonly SemaphoreSlim _semaphoreLock = new SemaphoreSlim(1, 1);
 
         private const string _cacheKey = "comments";
 
@@ -23,7 +25,22 @@ namespace Cache.Console
             _distributedCache = distributedCache;
         }
 
-        public async Task Execute()
+        public async Task ExecuteWithoutLock() => await Execute();
+
+        public async Task ExecuteWithLock()
+        {
+            await _semaphoreLock.WaitAsync();
+            try
+            {
+                await Execute();
+            }
+            finally
+            {
+                _semaphoreLock.Release();
+            }
+        }
+
+        private async Task Execute()
         {
             System.Console.WriteLine("Retrieving comments...");
             var comments = await GetCommentsFromCache();
