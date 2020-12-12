@@ -26,12 +26,21 @@ namespace Cache.Console
         public async Task Execute()
         {
             System.Console.WriteLine("Retrieving comments...");
-            var comments = await GetCommentsFromOrigin();
-            System.Console.WriteLine($"Retrieved {comments.Count()} comments!");
+            var comments = await GetCommentsFromCache();
+            if (comments is null || !comments.Any())
+            {
+                System.Console.WriteLine("No comments found in Redis, proceeding to origin");
+                comments = await GetCommentsFromOrigin();
+                if (comments is null || !comments.Any())
+                    throw new Exception("No comments found!");
+                System.Console.WriteLine("Putting comments in Redis...");
+                await SetCommentsInCache(comments);
+            }
+
             if (comments is null || !comments.Any())
                 throw new Exception("No comments found!");
-            System.Console.WriteLine("Putting comments in Redis...");
-            await SetCommentsInCache(comments);
+
+            System.Console.WriteLine($"Retrieved {comments.Count()} comments!");
         }
 
         private async Task<IEnumerable<Comment>> GetCommentsFromOrigin()
@@ -42,6 +51,24 @@ namespace Cache.Console
             var request = new HttpRequestMessage(HttpMethod.Get, "/comments");
             var response = await httpClient.SendAsync(request);
             return JsonConvert.DeserializeObject<IEnumerable<Comment>>(await response.Content.ReadAsStringAsync());
+        }
+
+        private async Task<IEnumerable<Comment>> GetCommentsFromCache() 
+        {
+            System.Console.WriteLine("Retrieving from Redis...");
+            var cacheData = await _distributedCache.GetAsync(_cacheKey);
+            if (cacheData is null || !cacheData.Any())
+                return null;
+
+            var cacheDataString = Encoding.UTF8.GetString(cacheData);
+            if (string.IsNullOrWhiteSpace(cacheDataString))
+                return null;
+
+            var deserializedComments = JsonConvert.DeserializeObject<IEnumerable<Comment>>(cacheDataString);
+            if (deserializedComments is null || !deserializedComments.Any())
+                return null;
+
+            return deserializedComments;
         }
 
         private async Task SetCommentsInCache(IEnumerable<Comment> comments)
