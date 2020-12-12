@@ -25,14 +25,14 @@ namespace Cache.Console
             _distributedCache = distributedCache;
         }
 
-        public async Task ExecuteWithoutLock() => await Execute();
+        public async Task<ThreadExecutionResult> ExecuteWithoutLock() => await Execute();
 
-        public async Task ExecuteWithLock()
+        public async Task<ThreadExecutionResult> ExecuteWithLock()
         {
             await _semaphoreLock.WaitAsync();
             try
             {
-                await Execute();
+                return await Execute();
             }
             finally
             {
@@ -40,8 +40,9 @@ namespace Cache.Console
             }
         }
 
-        private async Task Execute()
+        private async Task<ThreadExecutionResult> Execute()
         {
+            var fromCache = false;
             System.Console.WriteLine("Retrieving comments...");
             var comments = await GetCommentsFromCache();
             if (comments is null || !comments.Any())
@@ -53,11 +54,16 @@ namespace Cache.Console
                 System.Console.WriteLine("Putting comments in Redis...");
                 await SetCommentsInCache(comments);
             }
-
+            else
+                fromCache = true;
             if (comments is null || !comments.Any())
                 throw new Exception("No comments found!");
 
             System.Console.WriteLine($"Retrieved {comments.Count()} comments!");
+            return new ThreadExecutionResult
+            {
+                GotResultFromCache = fromCache
+            };
         }
 
         private async Task<IEnumerable<Comment>> GetCommentsFromOrigin()
