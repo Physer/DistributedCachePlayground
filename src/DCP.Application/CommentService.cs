@@ -8,7 +8,7 @@ using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
 
-namespace Cache.Console
+namespace DCP.Application
 {
     public class CommentService
     {
@@ -52,15 +52,15 @@ namespace Cache.Console
         private async Task<ThreadExecutionResult> Execute()
         {
             var fromCache = false;
-            System.Console.WriteLine("Retrieving comments...");
+            Console.WriteLine("Retrieving comments...");
             var comments = await GetCommentsFromCache();
             if (comments is null || !comments.Any())
             {
-                System.Console.WriteLine("No comments found in Redis, proceeding to origin");
+                Console.WriteLine("No comments found in Redis, proceeding to origin");
                 comments = await GetCommentsFromOrigin();
                 if (comments is null || !comments.Any())
                     throw new Exception("No comments found!");
-                System.Console.WriteLine("Putting comments in Redis...");
+                Console.WriteLine("Putting comments in Redis...");
                 await SetCommentsInCache(comments);
             }
             else
@@ -68,7 +68,7 @@ namespace Cache.Console
             if (comments is null || !comments.Any())
                 throw new Exception("No comments found!");
 
-            System.Console.WriteLine($"Retrieved {comments.Count()} comments!");
+            Console.WriteLine($"Retrieved {comments.Count()} comments!");
             return new ThreadExecutionResult
             {
                 GotResultFromCache = fromCache
@@ -77,7 +77,7 @@ namespace Cache.Console
 
         private async Task<IEnumerable<Comment>> GetCommentsFromOrigin()
         {
-            System.Console.WriteLine("Retrieving from origin...");
+            Console.WriteLine("Retrieving from origin...");
             var httpClient = _httpClientFactory.CreateClient();
             httpClient.BaseAddress = new Uri("https://jsonplaceholder.typicode.com");
             var request = new HttpRequestMessage(HttpMethod.Get, "/comments");
@@ -85,9 +85,9 @@ namespace Cache.Console
             return JsonConvert.DeserializeObject<IEnumerable<Comment>>(await response.Content.ReadAsStringAsync());
         }
 
-        private async Task<IEnumerable<Comment>> GetCommentsFromCache() 
+        private async Task<IEnumerable<Comment>> GetCommentsFromCache()
         {
-            System.Console.WriteLine("Retrieving from Redis...");
+            Console.WriteLine("Retrieving from Redis...");
             var cacheData = await _distributedCache.GetAsync(_cacheKey);
             if (cacheData is null || !cacheData.Any())
                 return null;

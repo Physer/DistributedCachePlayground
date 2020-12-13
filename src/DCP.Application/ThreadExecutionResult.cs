@@ -1,4 +1,4 @@
-﻿namespace Cache.Console
+﻿namespace DCP.Application
 {
     public class ThreadExecutionResult
     {

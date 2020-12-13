@@ -1,6 +1,6 @@
 ﻿using System.Collections.Generic;
 
-namespace Cache.Console
+namespace DCP.Application
 {
     public class ExecutionResult
     {
