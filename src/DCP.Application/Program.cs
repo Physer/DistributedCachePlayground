@@ -3,6 +3,7 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using System;
 using System.Collections.Concurrent;
+using System.Collections.Generic;
 using System.Diagnostics;
 using System.Linq;
 using System.Threading.Tasks;
@@ -16,30 +17,34 @@ namespace DCP.Application
             Console.WriteLine("Hello cache");
             // Build dependencies
             using IHost host = CreateHostBuilder(args).Build();
-            var commentService = host.Services.GetRequiredService<CommentService>();
+            var cachedCommentService = host.Services.GetRequiredService<CachedCommentService>();
+            var memoryCommentService = host.Services.GetRequiredService<MemoryCommentService>();
             var distributedCache = host.Services.GetRequiredService<IDistributedCache>();
+            var commentsRepository = host.Services.GetRequiredService<CommentsRepository>();
             var cacheKey = "comments";
 
-            // Initiate Redlock.net
+            // Load data in memory
+            var originStopwatch = new Stopwatch();
+            originStopwatch.Start();
+            var comments = (await commentsRepository.GetComments()).ToList();
+            originStopwatch.Stop();
 
+            // Retrieve the data from memory
+            var memoryResult = ExecuteUsingMemory(memoryCommentService, comments);
 
             // Remove any existing cache entries
             await distributedCache.RemoveAsync(cacheKey);
 
-            // Execute a flow with only retrieving data from origin
-            var originResult = await Execute(commentService, LockType.Unknown, true);
-            await distributedCache.RemoveAsync(cacheKey);
-
             // Execute the flow without any locks and clean up afterwards
-            var withoutLockResult = await Execute(commentService, LockType.None);
+            var withoutLockResult = await ExecuteUsingRedis(cachedCommentService, LockType.None);
             await distributedCache.RemoveAsync(cacheKey);
 
             // Execute the flow with a semaphore lock allowing for one thread's access and clean up afterwards
-            var withSemaphoreLockResult = await Execute(commentService, LockType.Semaphore);
+            var withSemaphoreLockResult = await ExecuteUsingRedis(cachedCommentService, LockType.Semaphore);
             await distributedCache.RemoveAsync(cacheKey);
 
             // Execute the flow with Redlock.net allowing for one thread's access and clean up afterwards
-            var withRedlockLockResult = await Execute(commentService, LockType.Redlock);
+            var withRedlockLockResult = await ExecuteUsingRedis(cachedCommentService, LockType.Redlock);
             await distributedCache.RemoveAsync(cacheKey);
 
             // Results overview formatting
@@ -66,11 +71,22 @@ namespace DCP.Application
             Console.WriteLine($"| at the end of the section.                                                  |");
             Console.WriteLine($"------------------------------------------------------------------------------");
             Console.WriteLine($"|                                 -- --                                       |");
-            Console.WriteLine($"| From origin:                                                                |");
-            Console.WriteLine($"| Total amount of requests: {originResult.ThreadExecutionResults.Count()}");
-            Console.WriteLine($"| Requests to origin: {originResult.ThreadExecutionResults.Count(result => !result.GotResultFromCache)}");
-            Console.WriteLine($"| Requests to Redis: {originResult.ThreadExecutionResults.Count(result => result.GotResultFromCache)}");
-            Console.WriteLine($"| Elapsed miliseconds: {originResult.ElapsedMiliseconds} ms");
+            Console.WriteLine($"| Retrieving comments from origin and storing in application memory.          |");
+            Console.WriteLine($"| Elapsed miliseconds: {originStopwatch.ElapsedMilliseconds} ms");
+            Console.WriteLine($"|                                 -- --                                       |");
+            Console.WriteLine($"------------------------------------------------------------------------------");
+            Console.WriteLine($"|                                 -- --                                       |");
+            Console.WriteLine($"|                           -- Using memory --                                |");
+            Console.WriteLine($"|                                 -- --                                       |");
+            Console.WriteLine($"| Only the elapsed miliseconds to retrieve the data are relevant.             |");
+            Console.WriteLine($"| Total amount of requests: {memoryResult.ThreadExecutionResults.Count()}");
+            Console.WriteLine($"| Requests to origin: {memoryResult.ThreadExecutionResults.Count(result => !result.GotResultFromCache)}");
+            Console.WriteLine($"| Requests to Redis: {memoryResult.ThreadExecutionResults.Count(result => result.GotResultFromCache)}");
+            Console.WriteLine($"| Elapsed miliseconds: {memoryResult.ElapsedMilliseconds} ms");
+            Console.WriteLine($"|                                 -- --                                       |");
+            Console.WriteLine($"------------------------------------------------------------------------------");
+            Console.WriteLine($"|                                 -- --                                       |");
+            Console.WriteLine($"|                      -- Using Origin & Redis --                             |");
             Console.WriteLine($"|                                 -- --                                       |");
             Console.WriteLine($"------------------------------------------------------------------------------");
             Console.WriteLine($"|                                 -- --                                       |");
@@ -78,7 +94,7 @@ namespace DCP.Application
             Console.WriteLine($"| Total amount of requests: {withoutLockResult.ThreadExecutionResults.Count()}");
             Console.WriteLine($"| Requests to origin: {withoutLockResult.ThreadExecutionResults.Count(result => !result.GotResultFromCache)}");
             Console.WriteLine($"| Requests to Redis: {withoutLockResult.ThreadExecutionResults.Count(result => result.GotResultFromCache)}");
-            Console.WriteLine($"| Elapsed miliseconds: {withoutLockResult.ElapsedMiliseconds} ms");
+            Console.WriteLine($"| Elapsed miliseconds: {withoutLockResult.ElapsedMilliseconds} ms");
             Console.WriteLine($"|                                 -- --                                       |");
             Console.WriteLine($"------------------------------------------------------------------------------");
             Console.WriteLine($"|                                 -- --                                       |");
@@ -86,7 +102,7 @@ namespace DCP.Application
             Console.WriteLine($"| Total amount of requests: {withSemaphoreLockResult.ThreadExecutionResults.Count()}");
             Console.WriteLine($"| Requests to origin: {withSemaphoreLockResult.ThreadExecutionResults.Count(result => !result.GotResultFromCache)}");
             Console.WriteLine($"| Requests to Redis: {withSemaphoreLockResult.ThreadExecutionResults.Count(result => result.GotResultFromCache)}");
-            Console.WriteLine($"| Elapsed miliseconds: {withSemaphoreLockResult.ElapsedMiliseconds} ms");
+            Console.WriteLine($"| Elapsed miliseconds: {withSemaphoreLockResult.ElapsedMilliseconds} ms");
             Console.WriteLine($"|                                 -- --                                       |");
             Console.WriteLine($"------------------------------------------------------------------------------");
             Console.WriteLine($"|                                 -- --                                       |");
@@ -94,7 +110,7 @@ namespace DCP.Application
             Console.WriteLine($"| Total amount of requests: {withRedlockLockResult.ThreadExecutionResults.Count()}");
             Console.WriteLine($"| Requests to origin: {withRedlockLockResult.ThreadExecutionResults.Count(result => !result.GotResultFromCache)}");
             Console.WriteLine($"| Requests to Redis: {withRedlockLockResult.ThreadExecutionResults.Count(result => result.GotResultFromCache)}");
-            Console.WriteLine($"| Elapsed miliseconds: {withRedlockLockResult.ElapsedMiliseconds} ms");
+            Console.WriteLine($"| Elapsed miliseconds: {withRedlockLockResult.ElapsedMilliseconds} ms");
             Console.WriteLine($"|                                 -- --                                       |");
             Console.WriteLine($"------------------------------------------------------------------------------");
 
@@ -102,21 +118,34 @@ namespace DCP.Application
             await host.RunAsync();
         }
 
-        static async Task<ExecutionResult> Execute(CommentService commentService, LockType lockType, bool alwaysUseOrigin = false)
+        static async Task<ExecutionResult> ExecuteUsingRedis(CachedCommentService commentService, LockType lockType, bool alwaysUseOrigin = false)
         {
             var stopwatch = new Stopwatch();
             stopwatch.Start();
-            Console.WriteLine("Starting timer...");
 
             var requests = new ConcurrentBag<Task<ThreadExecutionResult>>();
             Parallel.For(0, 200, _ => requests.Add(commentService.Execute(lockType, alwaysUseOrigin)));
             var threadResults = await Task.WhenAll(requests);
 
-            Console.WriteLine($"Time elapsed: {stopwatch.ElapsedMilliseconds} ms!");
             return new ExecutionResult
             {
                 ThreadExecutionResults = threadResults,
-                ElapsedMiliseconds = stopwatch.ElapsedMilliseconds
+                ElapsedMilliseconds = stopwatch.ElapsedMilliseconds
+            };
+        }
+
+        static ExecutionResult ExecuteUsingMemory(MemoryCommentService commentService, IEnumerable<Comment> comments)
+        {
+            var stopwatch = new Stopwatch();
+            stopwatch.Start();
+
+            var requests = new ConcurrentBag<ThreadExecutionResult>();
+            Parallel.For(0, 200, _ => requests.Add(commentService.Execute(comments)));
+
+            return new ExecutionResult
+            {
+                ThreadExecutionResults = requests,
+                ElapsedMilliseconds = stopwatch.ElapsedMilliseconds
             };
         }
 
@@ -127,7 +156,9 @@ namespace DCP.Application
                     services.AddHttpClient();
                     services.AddStackExchangeRedisCache(options => options.Configuration = "localhost");
 
-                    services.AddTransient<CommentService>();
+                    services.AddSingleton<CommentsRepository>();
+                    services.AddTransient<MemoryCommentService>();
+                    services.AddTransient<CachedCommentService>();
                 });
     }
 }

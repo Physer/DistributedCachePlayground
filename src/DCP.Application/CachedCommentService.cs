@@ -10,19 +10,23 @@ using System.Threading.Tasks;
 
 namespace DCP.Application
 {
-    public class CommentService
+    public class CachedCommentService
     {
         private readonly IHttpClientFactory _httpClientFactory;
         private readonly IDistributedCache _distributedCache;
+        private readonly CommentsRepository _commentsRepository;
+
         private readonly SemaphoreSlim _semaphoreLock = new SemaphoreSlim(1, 1);
 
         private const string _cacheKey = "comments";
 
-        public CommentService(IHttpClientFactory httpClientFactory,
-            IDistributedCache distributedCache)
+        public CachedCommentService(IHttpClientFactory httpClientFactory,
+            IDistributedCache distributedCache, 
+            CommentsRepository commentsRepository)
         {
             _httpClientFactory = httpClientFactory;
             _distributedCache = distributedCache;
+            _commentsRepository = commentsRepository;
         }
 
         public async Task<ThreadExecutionResult> Execute(LockType lockType, bool alwaysUseOrigin = false)
@@ -41,7 +45,8 @@ namespace DCP.Application
 
         private async Task<ThreadExecutionResult> ExecuteFromOrigin()
         {
-            var results = await GetCommentsFromOrigin();
+            Console.WriteLine("Retrieving from origin...");
+            _ = await _commentsRepository.GetComments();
             return new ThreadExecutionResult
             {
                 GotResultFromCache = false
@@ -85,7 +90,7 @@ namespace DCP.Application
             if (comments is null || !comments.Any())
             {
                 Console.WriteLine("No comments found in Redis, proceeding to origin");
-                comments = await GetCommentsFromOrigin();
+                comments = await _commentsRepository.GetComments();
                 if (comments is null || !comments.Any())
                     throw new Exception("No comments found!");
                 Console.WriteLine("Putting comments in Redis...");
@@ -101,16 +106,6 @@ namespace DCP.Application
             {
                 GotResultFromCache = fromCache
             };
-        }
-
-        private async Task<IEnumerable<Comment>> GetCommentsFromOrigin()
-        {
-            Console.WriteLine("Retrieving from origin...");
-            var httpClient = _httpClientFactory.CreateClient();
-            httpClient.BaseAddress = new Uri("https://jsonplaceholder.typicode.com");
-            var request = new HttpRequestMessage(HttpMethod.Get, "/comments");
-            var response = await httpClient.SendAsync(request);
-            return JsonConvert.DeserializeObject<IEnumerable<Comment>>(await response.Content.ReadAsStringAsync());
         }
 
         private async Task<IEnumerable<Comment>> GetCommentsFromCache()
