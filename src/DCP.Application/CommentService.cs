@@ -25,7 +25,21 @@ namespace DCP.Application
             _distributedCache = distributedCache;
         }
 
-        public async Task<ThreadExecutionResult> ExecuteFromOrigin()
+        public async Task<ThreadExecutionResult> Execute(LockType lockType, bool alwaysUseOrigin = false)
+        {
+            if (alwaysUseOrigin)
+                return await ExecuteFromOrigin();
+
+            return lockType switch
+            {
+                LockType.Redlock => await ExecuteWithRedlock(),
+                LockType.Semaphore => await ExecuteWithSemaphore(),
+                LockType.None => await ExecuteWithoutLock(),
+                _ => throw new Exception("No valid lock type found!"),
+            };
+        }
+
+        private async Task<ThreadExecutionResult> ExecuteFromOrigin()
         {
             var results = await GetCommentsFromOrigin();
             return new ThreadExecutionResult
@@ -34,9 +48,9 @@ namespace DCP.Application
             };
         }
 
-        public async Task<ThreadExecutionResult> ExecuteWithoutLock() => await Execute();
+        private async Task<ThreadExecutionResult> ExecuteWithoutLock() => await Execute();
 
-        public async Task<ThreadExecutionResult> ExecuteWithLock()
+        private async Task<ThreadExecutionResult> ExecuteWithSemaphore()
         {
             await _semaphoreLock.WaitAsync();
             try
@@ -47,6 +61,11 @@ namespace DCP.Application
             {
                 _semaphoreLock.Release();
             }
+        }
+
+        private async Task<ThreadExecutionResult> ExecuteWithRedlock()
+        {
+            throw new NotImplementedException();
         }
 
         private async Task<ThreadExecutionResult> Execute()
