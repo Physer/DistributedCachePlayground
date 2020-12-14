@@ -20,6 +20,9 @@ namespace DCP.Application
             var distributedCache = host.Services.GetRequiredService<IDistributedCache>();
             var cacheKey = "comments";
 
+            // Initiate Redlock.net
+
+
             // Remove any existing cache entries
             await distributedCache.RemoveAsync(cacheKey);
 
@@ -33,6 +36,10 @@ namespace DCP.Application
 
             // Execute the flow with a semaphore lock allowing for one thread's access and clean up afterwards
             var withSemaphoreLockResult = await Execute(commentService, LockType.Semaphore);
+            await distributedCache.RemoveAsync(cacheKey);
+
+            // Execute the flow with Redlock.net allowing for one thread's access and clean up afterwards
+            var withRedlockLockResult = await Execute(commentService, LockType.Redlock);
             await distributedCache.RemoveAsync(cacheKey);
 
             // Results overview formatting
@@ -80,6 +87,14 @@ namespace DCP.Application
             Console.WriteLine($"| Requests to origin: {withSemaphoreLockResult.ThreadExecutionResults.Count(result => !result.GotResultFromCache)}");
             Console.WriteLine($"| Requests to Redis: {withSemaphoreLockResult.ThreadExecutionResults.Count(result => result.GotResultFromCache)}");
             Console.WriteLine($"| Elapsed miliseconds: {withSemaphoreLockResult.ElapsedMiliseconds} ms");
+            Console.WriteLine($"|                                 -- --                                       |");
+            Console.WriteLine($"------------------------------------------------------------------------------");
+            Console.WriteLine($"|                                 -- --                                       |");
+            Console.WriteLine($"| With Redlock.Net:                                                      |");
+            Console.WriteLine($"| Total amount of requests: {withRedlockLockResult.ThreadExecutionResults.Count()}");
+            Console.WriteLine($"| Requests to origin: {withRedlockLockResult.ThreadExecutionResults.Count(result => !result.GotResultFromCache)}");
+            Console.WriteLine($"| Requests to Redis: {withRedlockLockResult.ThreadExecutionResults.Count(result => result.GotResultFromCache)}");
+            Console.WriteLine($"| Elapsed miliseconds: {withRedlockLockResult.ElapsedMiliseconds} ms");
             Console.WriteLine($"|                                 -- --                                       |");
             Console.WriteLine($"------------------------------------------------------------------------------");
 

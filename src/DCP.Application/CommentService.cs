@@ -65,7 +65,16 @@ namespace DCP.Application
 
         private async Task<ThreadExecutionResult> ExecuteWithRedlock()
         {
-            throw new NotImplementedException();
+            var lockKey = "comments-lock";
+            var expiry = TimeSpan.FromSeconds(30);
+            var wait = TimeSpan.FromSeconds(10);
+            var retry = TimeSpan.FromSeconds(1);
+
+            using var redlock = await InitializedRedlockFactory.Instance.Factory.CreateLockAsync(lockKey, expiry, wait, retry);
+            if (redlock.IsAcquired)
+                return await Execute();
+
+            return new ThreadExecutionResult();
         }
 
         private async Task<ThreadExecutionResult> Execute()
