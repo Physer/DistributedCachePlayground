@@ -10,7 +10,7 @@ using System.Threading.Tasks;
 
 namespace DCP.Application
 {
-    public class CommentService
+    public class CachedCommentService
     {
         private readonly IHttpClientFactory _httpClientFactory;
         private readonly IDistributedCache _distributedCache;
@@ -18,7 +18,7 @@ namespace DCP.Application
 
         private const string _cacheKey = "comments";
 
-        public CommentService(IHttpClientFactory httpClientFactory,
+        public CachedCommentService(IHttpClientFactory httpClientFactory,
             IDistributedCache distributedCache)
         {
             _httpClientFactory = httpClientFactory;
