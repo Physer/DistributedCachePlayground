@@ -25,7 +25,21 @@ namespace DCP.Application
             _distributedCache = distributedCache;
         }
 
-        public async Task<ThreadExecutionResult> ExecuteFromOrigin()
+        public async Task<ThreadExecutionResult> Execute(LockType lockType, bool alwaysUseOrigin = false)
+        {
+            if (alwaysUseOrigin)
+                return await ExecuteFromOrigin();
+
+            return lockType switch
+            {
+                LockType.Redlock => await ExecuteWithRedlock(),
+                LockType.Semaphore => await ExecuteWithSemaphore(),
+                LockType.None => await ExecuteWithoutLock(),
+                _ => throw new Exception("No valid lock type found!"),
+            };
+        }
+
+        private async Task<ThreadExecutionResult> ExecuteFromOrigin()
         {
             var results = await GetCommentsFromOrigin();
             return new ThreadExecutionResult
@@ -34,9 +48,9 @@ namespace DCP.Application
             };
         }
 
-        public async Task<ThreadExecutionResult> ExecuteWithoutLock() => await Execute();
+        private async Task<ThreadExecutionResult> ExecuteWithoutLock() => await Execute();
 
-        public async Task<ThreadExecutionResult> ExecuteWithLock()
+        private async Task<ThreadExecutionResult> ExecuteWithSemaphore()
         {
             await _semaphoreLock.WaitAsync();
             try
@@ -47,6 +61,20 @@ namespace DCP.Application
             {
                 _semaphoreLock.Release();
             }
+        }
+
+        private async Task<ThreadExecutionResult> ExecuteWithRedlock()
+        {
+            var lockKey = "comments-lock";
+            var expiry = TimeSpan.FromSeconds(30);
+            var wait = TimeSpan.FromSeconds(10);
+            var retry = TimeSpan.FromSeconds(1);
+
+            using var redlock = await InitializedRedlockFactory.Instance.Factory.CreateLockAsync(lockKey, expiry, wait, retry);
+            if (redlock.IsAcquired)
+                return await Execute();
+
+            return new ThreadExecutionResult();
         }
 
         private async Task<ThreadExecutionResult> Execute()
