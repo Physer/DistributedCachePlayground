@@ -1,7 +1,7 @@
 ﻿using DCP.Logic;
-using Microsoft.Extensions.Caching.Distributed;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
+using System;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Diagnostics;
@@ -14,44 +14,58 @@ namespace DCP.Application
     {
         static async Task Main(string[] args)
         {
-            var results = new List<ExecutionResult>();
             // Build dependencies
             using IHost host = CreateHostBuilder(args).Build();
             var cachedCommentService = host.Services.GetRequiredService<CachedCommentService>();
             var memoryCommentService = host.Services.GetRequiredService<MemoryCommentService>();
-            var distributedCache = host.Services.GetRequiredService<IDistributedCache>();
             var commentsRepository = host.Services.GetRequiredService<CommentsRepository>();
-            var cacheKey = "comments";
 
-            // Load data in memory
-            var originStopwatch = new Stopwatch();
-            originStopwatch.Start();
-            var comments = (await commentsRepository.GetComments()).ToList();
-            originStopwatch.Stop();
+            // Parse input
+            if (args.Length <= 0 && args.Length > 1)
+            {
+                Console.WriteLine("No valid options passed in... Exiting...");
+                return;
+            }
 
-            // Retrieve the data from memory
-            var memoryResult = ExecuteUsingMemory(memoryCommentService, comments);
-            results.Add(memoryResult);
+            if(!int.TryParse(args.First(), out var parsedOption))
+            {
+                Console.WriteLine("Invalid option selected, exiting...");
+                return;
+            }
 
-            // Remove any existing cache entries
-            await distributedCache.RemoveAsync(cacheKey);
+            // Execute application flow
+            ExecutionResult executionResult = null;
+            switch(parsedOption)
+            {
+                // In-memory
+                case 1:
+                    var comments = (await commentsRepository.GetComments()).ToList();
+                    executionResult = ExecuteUsingMemory(memoryCommentService, comments);
+                    break;
+                // Redis without locking
+                case 2:
+                    executionResult = await ExecuteUsingRedis(cachedCommentService, LockType.None);
+                    break;
+                // Redis with a Semaphore lock
+                case 3:
+                    executionResult = await ExecuteUsingRedis(cachedCommentService, LockType.Semaphore);
+                    break;
+                // Redis with Redlock.net
+                case 4:
+                    executionResult = await ExecuteUsingRedis(cachedCommentService, LockType.Redlock);
+                    break;
+                default:
+                    Console.WriteLine("Unable to use the select option, exiting...");
+                    return;
+            }
 
-            // Execute the flow without any locks and clean up afterwards
-            var withoutLockResult = await ExecuteUsingRedis(cachedCommentService, LockType.None);
-            await distributedCache.RemoveAsync(cacheKey);
-            results.Add(withoutLockResult);
+            if(executionResult is null)
+            {
+                Console.WriteLine("Unable to retrieve the result, exiting...");
+                return;
+            }
 
-            // Execute the flow with a semaphore lock allowing for one thread's access and clean up afterwards
-            var withSemaphoreLockResult = await ExecuteUsingRedis(cachedCommentService, LockType.Semaphore);
-            await distributedCache.RemoveAsync(cacheKey);
-            results.Add(withSemaphoreLockResult);
-
-            // Execute the flow with Redlock.net allowing for one thread's access and clean up afterwards
-            var withRedlockLockResult = await ExecuteUsingRedis(cachedCommentService, LockType.Redlock);
-            await distributedCache.RemoveAsync(cacheKey);
-            results.Add(withRedlockLockResult);
-
-            ResultsPrinter.PrintResults(results);
+            ResultsPrinter.PrintResults(executionResult);
             await host.RunAsync();
         }
 

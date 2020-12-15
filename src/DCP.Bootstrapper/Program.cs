@@ -1,4 +1,5 @@
 ﻿using DCP.Logic;
+using Microsoft.Extensions.Caching.Distributed;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using System;
@@ -11,12 +12,14 @@ namespace DCP.Bootstrapper
 {
     class Program
     {
-        static void Main(string[] args)
+        static async Task Main(string[] args)
         {
             WriteLine("Distributed Cache Playground | Bootstrapper");
             WriteLine($"------------------------------------------------------------------------------");
 
             using IHost host = CreateHostBuilder(args).Build();
+            var distributedCache = host.Services.GetRequiredService<IDistributedCache>();
+            var cacheKey = "comments";
 
             WriteLine("Please enter the number of your desired benchmark:");
             WriteLine("1. Using in-memory references");
@@ -40,6 +43,10 @@ namespace DCP.Bootstrapper
             WriteLine($"------------------------------------------------------------------------------");
             WriteLine("Commencing benchmarks...");
 
+            WriteLine("Cleaning cache from potential previous runs...");
+            await distributedCache.RemoveAsync(cacheKey);
+
+
             Parallel.For(0, parsedInstanceAmount, _ => 
             {
                 var applicationProcess = new Process();
@@ -48,13 +55,17 @@ namespace DCP.Bootstrapper
                 var processInfo = new ProcessStartInfo
                 {
                     FileName = "dotnet",
-                    Arguments = "run -p DCP.Application.csproj",
+                    Arguments = $"run -p DCP.Application.csproj {parsedBenchmarkNumber}",
                     WorkingDirectory = applicationProjectFolder,
                     UseShellExecute = true
                 };
                 applicationProcess.StartInfo = processInfo;
                 applicationProcess.Start();
-            });            
+                applicationProcess.WaitForExit();
+            });
+
+            WriteLine("Cleaning up cache after running...");
+            await distributedCache.RemoveAsync(cacheKey);
 
             WriteLine("The bootstrapper has finished its work, press any key to exit...");
             ReadKey();

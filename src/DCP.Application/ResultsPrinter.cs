@@ -1,5 +1,4 @@
 ﻿using DCP.Logic;
-using System.Collections.Generic;
 using System.Linq;
 using static System.Console;
 
@@ -7,7 +6,7 @@ namespace DCP.Application
 {
     public static class ResultsPrinter
     {
-        public static void PrintResults(IEnumerable<ExecutionResult> results)
+        public static void PrintResults(ExecutionResult result)
         {
             WriteLine($"------------------------------------------------------------------------------");
             WriteLine($"| --                         Results overview                              -- |");
@@ -29,15 +28,12 @@ namespace DCP.Application
             WriteLine($"|                                 -- --                                       |");
             WriteLine($"|                             -- Results --                                   |");
             WriteLine($"|                                 -- --                                       |");
-            foreach (var result in results) 
-            {
-                WriteLine($"| {result.ResultTitle}");
-                WriteLine($"| Total amount of requests: {result.ThreadExecutionResults.Count()}");
-                WriteLine($"| Requests to origin: {result.ThreadExecutionResults.Count(result => !result.GotResultFromCache)}");
-                WriteLine($"| Requests to cache or memory references: {result.ThreadExecutionResults.Count(result => result.GotResultFromCache)}");
-                WriteLine($"| Elapsed miliseconds: {result.ElapsedMilliseconds} ms");
-                WriteLine($"|                                 -- --                                       |");
-            }
+            WriteLine($"| {result.ResultTitle}");
+            WriteLine($"| Total amount of requests: {result.ThreadExecutionResults.Count()}");
+            WriteLine($"| Requests to origin: {result.ThreadExecutionResults.Count(result => !result.GotResultFromCache)}");
+            WriteLine($"| Requests to cache or memory references: {result.ThreadExecutionResults.Count(result => result.GotResultFromCache)}");
+            WriteLine($"| Elapsed miliseconds: {result.ElapsedMilliseconds} ms");
+            WriteLine($"|                                 -- --                                       |");
             WriteLine($"------------------------------------------------------------------------------");
         }
     }
