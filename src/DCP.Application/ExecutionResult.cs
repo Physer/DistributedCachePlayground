@@ -6,5 +6,6 @@ namespace DCP.Application
     {
         public IEnumerable<ThreadExecutionResult> ThreadExecutionResults { get; set; }
         public long ElapsedMilliseconds { get; set; }
+        public string ResultTitle { get; set; }
     }
 }
