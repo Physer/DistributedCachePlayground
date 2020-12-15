@@ -7,6 +7,8 @@ Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "DCP.Application", "src\DCP.
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "DCP.Bootstrapper", "src\DCP.Bootstrapper\DCP.Bootstrapper.csproj", "{09911C33-7C26-4C0C-9884-BCB403BAF84F}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "DCP.Logic", "src\DCP.Logic\DCP.Logic.csproj", "{C8DA2AAB-5AD0-475F-8093-F6A04F9CFD68}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -21,6 +23,10 @@ Global
 		{09911C33-7C26-4C0C-9884-BCB403BAF84F}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{09911C33-7C26-4C0C-9884-BCB403BAF84F}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{09911C33-7C26-4C0C-9884-BCB403BAF84F}.Release|Any CPU.Build.0 = Release|Any CPU
+		{C8DA2AAB-5AD0-475F-8093-F6A04F9CFD68}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{C8DA2AAB-5AD0-475F-8093-F6A04F9CFD68}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{C8DA2AAB-5AD0-475F-8093-F6A04F9CFD68}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{C8DA2AAB-5AD0-475F-8093-F6A04F9CFD68}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE

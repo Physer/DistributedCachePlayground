@@ -1,6 +1,6 @@
 ﻿using System.Collections.Generic;
 
-namespace DCP.Application
+namespace DCP.Logic
 {
     public class ExecutionResult
     {

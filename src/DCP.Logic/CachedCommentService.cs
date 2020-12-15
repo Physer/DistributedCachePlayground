@@ -7,7 +7,7 @@ using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
 
-namespace DCP.Application
+namespace DCP.Logic
 {
     public class CachedCommentService
     {
@@ -18,7 +18,7 @@ namespace DCP.Application
 
         private const string _cacheKey = "comments";
 
-        public CachedCommentService(IDistributedCache distributedCache, 
+        public CachedCommentService(IDistributedCache distributedCache,
             CommentsRepository commentsRepository)
         {
             _distributedCache = distributedCache;
