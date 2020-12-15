@@ -1,4 +1,4 @@
-﻿namespace DCP.Application
+﻿namespace DCP.Logic
 {
     public class Comment
     {

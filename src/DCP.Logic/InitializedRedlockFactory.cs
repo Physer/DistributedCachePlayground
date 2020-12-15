@@ -4,7 +4,7 @@ using System;
 using System.Collections.Generic;
 using System.Net;
 
-namespace DCP.Application
+namespace DCP.Logic
 {
     public sealed class InitializedRedlockFactory
     {

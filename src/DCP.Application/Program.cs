@@ -1,4 +1,4 @@
-﻿using Microsoft.Extensions.Caching.Distributed;
+﻿using DCP.Logic;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using System;
@@ -14,102 +14,58 @@ namespace DCP.Application
     {
         static async Task Main(string[] args)
         {
-            Console.WriteLine("Hello cache");
             // Build dependencies
             using IHost host = CreateHostBuilder(args).Build();
             var cachedCommentService = host.Services.GetRequiredService<CachedCommentService>();
             var memoryCommentService = host.Services.GetRequiredService<MemoryCommentService>();
-            var distributedCache = host.Services.GetRequiredService<IDistributedCache>();
             var commentsRepository = host.Services.GetRequiredService<CommentsRepository>();
-            var cacheKey = "comments";
 
-            // Load data in memory
-            var originStopwatch = new Stopwatch();
-            originStopwatch.Start();
-            var comments = (await commentsRepository.GetComments()).ToList();
-            originStopwatch.Stop();
+            // Parse input
+            if (args.Length <= 0 && args.Length > 1)
+            {
+                Console.WriteLine("No valid options passed in... Exiting...");
+                return;
+            }
 
-            // Retrieve the data from memory
-            var memoryResult = ExecuteUsingMemory(memoryCommentService, comments);
+            if(!int.TryParse(args.First(), out var parsedOption))
+            {
+                Console.WriteLine("Invalid option selected, exiting...");
+                return;
+            }
 
-            // Remove any existing cache entries
-            await distributedCache.RemoveAsync(cacheKey);
+            // Execute application flow
+            ExecutionResult executionResult = null;
+            switch(parsedOption)
+            {
+                // In-memory
+                case 1:
+                    var comments = (await commentsRepository.GetComments()).ToList();
+                    executionResult = ExecuteUsingMemory(memoryCommentService, comments);
+                    break;
+                // Redis without locking
+                case 2:
+                    executionResult = await ExecuteUsingRedis(cachedCommentService, LockType.None);
+                    break;
+                // Redis with a Semaphore lock
+                case 3:
+                    executionResult = await ExecuteUsingRedis(cachedCommentService, LockType.Semaphore);
+                    break;
+                // Redis with Redlock.net
+                case 4:
+                    executionResult = await ExecuteUsingRedis(cachedCommentService, LockType.Redlock);
+                    break;
+                default:
+                    Console.WriteLine("Unable to use the select option, exiting...");
+                    return;
+            }
 
-            // Execute the flow without any locks and clean up afterwards
-            var withoutLockResult = await ExecuteUsingRedis(cachedCommentService, LockType.None);
-            await distributedCache.RemoveAsync(cacheKey);
+            if(executionResult is null)
+            {
+                Console.WriteLine("Unable to retrieve the result, exiting...");
+                return;
+            }
 
-            // Execute the flow with a semaphore lock allowing for one thread's access and clean up afterwards
-            var withSemaphoreLockResult = await ExecuteUsingRedis(cachedCommentService, LockType.Semaphore);
-            await distributedCache.RemoveAsync(cacheKey);
-
-            // Execute the flow with Redlock.net allowing for one thread's access and clean up afterwards
-            var withRedlockLockResult = await ExecuteUsingRedis(cachedCommentService, LockType.Redlock);
-            await distributedCache.RemoveAsync(cacheKey);
-
-            // Results overview formatting
-            Console.WriteLine($"------------------------------------------------------------------------------");
-            Console.WriteLine($"| --                         Results overview                              -- |");
-            Console.WriteLine($"------------------------------------------------------------------------------");
-            Console.WriteLine($"|                                 -- --                                       |");
-            Console.WriteLine($"|                           -- Introduction --                                |");
-            Console.WriteLine($"|                                 -- --                                       |");
-            Console.WriteLine($"| This overview presents data about accessing an unlocked resource in Redis   |");
-            Console.WriteLine($"| with multiple threads.                                                      |");
-            Console.WriteLine($"|                                                                             |");
-            Console.WriteLine($"| Every section providers the amount of requests going to the origin          |");
-            Console.WriteLine($"| and to the cache.                                                           |");
-            Console.WriteLine($"|                                                                             |");
-            Console.WriteLine($"| 200 threads are executed in parallel, to simulate multiple threads          |");
-            Console.WriteLine($"| accessing the same resource at the same time.                               |");
-            Console.WriteLine($"|                                                                             |");
-            Console.WriteLine($"| The elapsed time is presented at the end of the section.                    |");
-            Console.WriteLine($"------------------------------------------------------------------------------");
-            Console.WriteLine($"|                                 -- --                                       |");
-            Console.WriteLine($"| Retrieving comments from origin and storing in application memory.          |");
-            Console.WriteLine($"| Elapsed miliseconds: {originStopwatch.ElapsedMilliseconds} ms");
-            Console.WriteLine($"|                                 -- --                                       |");
-            Console.WriteLine($"------------------------------------------------------------------------------");
-            Console.WriteLine($"|                                 -- --                                       |");
-            Console.WriteLine($"|                           -- Using memory --                                |");
-            Console.WriteLine($"|                                 -- --                                       |");
-            Console.WriteLine($"| Only the elapsed miliseconds to retrieve the data are relevant.             |");
-            Console.WriteLine($"| Total amount of requests: {memoryResult.ThreadExecutionResults.Count()}");
-            Console.WriteLine($"| Requests to origin: {memoryResult.ThreadExecutionResults.Count(result => !result.GotResultFromCache)}");
-            Console.WriteLine($"| Requests to memory references: {memoryResult.ThreadExecutionResults.Count(result => result.GotResultFromCache)}");
-            Console.WriteLine($"| Elapsed miliseconds: {memoryResult.ElapsedMilliseconds} ms");
-            Console.WriteLine($"|                                 -- --                                       |");
-            Console.WriteLine($"------------------------------------------------------------------------------");
-            Console.WriteLine($"|                                 -- --                                       |");
-            Console.WriteLine($"|                      -- Using Origin & Redis --                             |");
-            Console.WriteLine($"|                                 -- --                                       |");
-            Console.WriteLine($"------------------------------------------------------------------------------");
-            Console.WriteLine($"|                                 -- --                                       |");
-            Console.WriteLine($"| Without locking:                                                            |");
-            Console.WriteLine($"| Total amount of requests: {withoutLockResult.ThreadExecutionResults.Count()}");
-            Console.WriteLine($"| Requests to origin: {withoutLockResult.ThreadExecutionResults.Count(result => !result.GotResultFromCache)}");
-            Console.WriteLine($"| Requests to Redis: {withoutLockResult.ThreadExecutionResults.Count(result => result.GotResultFromCache)}");
-            Console.WriteLine($"| Elapsed miliseconds: {withoutLockResult.ElapsedMilliseconds} ms");
-            Console.WriteLine($"|                                 -- --                                       |");
-            Console.WriteLine($"------------------------------------------------------------------------------");
-            Console.WriteLine($"|                                 -- --                                       |");
-            Console.WriteLine($"| With a semaphore lock:                                                      |");
-            Console.WriteLine($"| Total amount of requests: {withSemaphoreLockResult.ThreadExecutionResults.Count()}");
-            Console.WriteLine($"| Requests to origin: {withSemaphoreLockResult.ThreadExecutionResults.Count(result => !result.GotResultFromCache)}");
-            Console.WriteLine($"| Requests to Redis: {withSemaphoreLockResult.ThreadExecutionResults.Count(result => result.GotResultFromCache)}");
-            Console.WriteLine($"| Elapsed miliseconds: {withSemaphoreLockResult.ElapsedMilliseconds} ms");
-            Console.WriteLine($"|                                 -- --                                       |");
-            Console.WriteLine($"------------------------------------------------------------------------------");
-            Console.WriteLine($"|                                 -- --                                       |");
-            Console.WriteLine($"| With Redlock.Net:                                                      |");
-            Console.WriteLine($"| Total amount of requests: {withRedlockLockResult.ThreadExecutionResults.Count()}");
-            Console.WriteLine($"| Requests to origin: {withRedlockLockResult.ThreadExecutionResults.Count(result => !result.GotResultFromCache)}");
-            Console.WriteLine($"| Requests to Redis: {withRedlockLockResult.ThreadExecutionResults.Count(result => result.GotResultFromCache)}");
-            Console.WriteLine($"| Elapsed miliseconds: {withRedlockLockResult.ElapsedMilliseconds} ms");
-            Console.WriteLine($"|                                 -- --                                       |");
-            Console.WriteLine($"------------------------------------------------------------------------------");
-
-            Console.WriteLine("Goodbye cache");
+            ResultsPrinter.PrintResults(executionResult);
             await host.RunAsync();
         }
 
@@ -125,7 +81,8 @@ namespace DCP.Application
             return new ExecutionResult
             {
                 ThreadExecutionResults = threadResults,
-                ElapsedMilliseconds = stopwatch.ElapsedMilliseconds
+                ElapsedMilliseconds = stopwatch.ElapsedMilliseconds,
+                ResultTitle = $"Results using Redis cache with lock: {lockType}"
             };
         }
 
@@ -140,7 +97,8 @@ namespace DCP.Application
             return new ExecutionResult
             {
                 ThreadExecutionResults = requests,
-                ElapsedMilliseconds = stopwatch.ElapsedMilliseconds
+                ElapsedMilliseconds = stopwatch.ElapsedMilliseconds,
+                ResultTitle = $"Results using in-memory"
             };
         }
 

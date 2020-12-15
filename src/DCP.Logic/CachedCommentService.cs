@@ -3,16 +3,14 @@ using Newtonsoft.Json;
 using System;
 using System.Collections.Generic;
 using System.Linq;
-using System.Net.Http;
 using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
 
-namespace DCP.Application
+namespace DCP.Logic
 {
     public class CachedCommentService
     {
-        private readonly IHttpClientFactory _httpClientFactory;
         private readonly IDistributedCache _distributedCache;
         private readonly CommentsRepository _commentsRepository;
 
@@ -20,11 +18,9 @@ namespace DCP.Application
 
         private const string _cacheKey = "comments";
 
-        public CachedCommentService(IHttpClientFactory httpClientFactory,
-            IDistributedCache distributedCache, 
+        public CachedCommentService(IDistributedCache distributedCache,
             CommentsRepository commentsRepository)
         {
-            _httpClientFactory = httpClientFactory;
             _distributedCache = distributedCache;
             _commentsRepository = commentsRepository;
         }
@@ -45,7 +41,6 @@ namespace DCP.Application
 
         private async Task<ThreadExecutionResult> ExecuteFromOrigin()
         {
-            Console.WriteLine("Retrieving from origin...");
             _ = await _commentsRepository.GetComments();
             return new ThreadExecutionResult
             {
@@ -85,15 +80,12 @@ namespace DCP.Application
         private async Task<ThreadExecutionResult> Execute()
         {
             var fromCache = false;
-            Console.WriteLine("Retrieving comments...");
             var comments = await GetCommentsFromCache();
             if (comments is null || !comments.Any())
             {
-                Console.WriteLine("No comments found in Redis, proceeding to origin");
                 comments = await _commentsRepository.GetComments();
                 if (comments is null || !comments.Any())
                     throw new Exception("No comments found!");
-                Console.WriteLine("Putting comments in Redis...");
                 await SetCommentsInCache(comments);
             }
             else
@@ -101,7 +93,6 @@ namespace DCP.Application
             if (comments is null || !comments.Any())
                 throw new Exception("No comments found!");
 
-            Console.WriteLine($"Retrieved {comments.Count()} comments!");
             return new ThreadExecutionResult
             {
                 GotResultFromCache = fromCache
@@ -110,7 +101,6 @@ namespace DCP.Application
 
         private async Task<IEnumerable<Comment>> GetCommentsFromCache()
         {
-            Console.WriteLine("Retrieving from Redis...");
             var cacheData = await _distributedCache.GetAsync(_cacheKey);
             if (cacheData is null || !cacheData.Any())
                 return null;

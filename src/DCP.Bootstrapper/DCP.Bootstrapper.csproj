@@ -12,7 +12,7 @@
   </ItemGroup>
 
   <ItemGroup>
-    <ProjectReference Include="..\DCP.Logic\DCP.Logic.csproj" />
+    <ProjectReference Include="..\DCP.Application\DCP.Application.csproj" />
   </ItemGroup>
 
 </Project>
