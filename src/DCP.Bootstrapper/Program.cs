@@ -22,7 +22,7 @@ namespace DCP.Bootstrapper
             var cacheKey = "comments";
 
             WriteLine("Please enter the number of your desired benchmark:");
-            WriteLine("1. Using in-memory references");
+            WriteLine("1. Using in-memory references with a semaphore lock");
             WriteLine("2. Using Redis without locking");
             WriteLine("3. Using Redis with a semaphore lock");
             WriteLine("4. Using Redis with Redlock.net");
@@ -79,7 +79,7 @@ namespace DCP.Bootstrapper
                     services.AddStackExchangeRedisCache(options => options.Configuration = "localhost");
 
                     services.AddSingleton<CommentsRepository>();
-                    services.AddTransient<MemoryCommentService>();
+                    services.AddSingleton<MemoryCommentService>();
                     services.AddTransient<CachedCommentService>();
                 });
     }

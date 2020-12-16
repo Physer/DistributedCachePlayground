@@ -39,8 +39,7 @@ namespace DCP.Application
             {
                 // In-memory
                 case 1:
-                    var comments = (await commentsRepository.GetComments()).ToList();
-                    executionResult = ExecuteUsingMemory(memoryCommentService, comments);
+                    executionResult = await ExecuteUsingMemory(memoryCommentService);
                     break;
                 // Redis without locking
                 case 2:
@@ -86,17 +85,18 @@ namespace DCP.Application
             };
         }
 
-        static ExecutionResult ExecuteUsingMemory(MemoryCommentService commentService, IEnumerable<Comment> comments)
+        static async Task<ExecutionResult> ExecuteUsingMemory(MemoryCommentService commentService)
         {
             var stopwatch = new Stopwatch();
             stopwatch.Start();
 
-            var requests = new ConcurrentBag<ThreadExecutionResult>();
-            Parallel.For(0, 200, _ => requests.Add(commentService.Execute(comments)));
+            var requests = new ConcurrentBag<Task<ThreadExecutionResult>>();
+            Parallel.For(0, 200, _ => requests.Add(commentService.Execute()));
+            var threadResults = await Task.WhenAll(requests);
 
             return new ExecutionResult
             {
-                ThreadExecutionResults = requests,
+                ThreadExecutionResults = threadResults,
                 ElapsedMilliseconds = stopwatch.ElapsedMilliseconds,
                 ResultTitle = $"Results using in-memory"
             };
@@ -110,7 +110,7 @@ namespace DCP.Application
                     services.AddStackExchangeRedisCache(options => options.Configuration = "localhost");
 
                     services.AddSingleton<CommentsRepository>();
-                    services.AddTransient<MemoryCommentService>();
+                    services.AddSingleton<MemoryCommentService>();
                     services.AddTransient<CachedCommentService>();
                 });
     }
