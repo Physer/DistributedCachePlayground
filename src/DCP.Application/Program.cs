@@ -1,6 +1,7 @@
 ﻿using DCP.Logic;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
+using StackExchange.Redis;
 using System;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
@@ -12,6 +13,9 @@ namespace DCP.Application
 {
     public class Program
     {
+        private static readonly Lazy<ConnectionMultiplexer> _lazyConnection = new Lazy<ConnectionMultiplexer>(() => ConnectionMultiplexer.Connect("localhost"));
+        public static ConnectionMultiplexer Connection => _lazyConnection.Value;
+
         static async Task Main(string[] args)
         {
             // Build dependencies
@@ -19,19 +23,21 @@ namespace DCP.Application
             var cachedCommentService = host.Services.GetRequiredService<CachedCommentService>();
             var memoryCommentService = host.Services.GetRequiredService<MemoryCommentService>();
             var commentsRepository = host.Services.GetRequiredService<CommentsRepository>();
+            var cache = _lazyConnection.Value.GetDatabase();
 
             // Parse input
-            if (args.Length <= 0 && args.Length > 1)
-            {
-                Console.WriteLine("No valid options passed in... Exiting...");
-                return;
-            }
+            //if (args.Length <= 0 && args.Length > 1)
+            //{
+            //    Console.WriteLine("No valid options passed in... Exiting...");
+            //    return;
+            //}
 
-            if(!int.TryParse(args.First(), out var parsedOption))
-            {
-                Console.WriteLine("Invalid option selected, exiting...");
-                return;
-            }
+            //if(!int.TryParse(args.First(), out var parsedOption))
+            //{
+            //    Console.WriteLine("Invalid option selected, exiting...");
+            //    return;
+            //}
+            var parsedOption = 3;
 
             // Execute application flow
             ExecutionResult executionResult = null;
@@ -43,15 +49,15 @@ namespace DCP.Application
                     break;
                 // Redis without locking
                 case 2:
-                    executionResult = await ExecuteUsingRedis(cachedCommentService, LockType.None);
+                    executionResult = await ExecuteUsingRedis(cache, cachedCommentService, LockType.None);
                     break;
                 // Redis with a Semaphore lock
                 case 3:
-                    executionResult = await ExecuteUsingRedis(cachedCommentService, LockType.Semaphore);
+                    executionResult = await ExecuteUsingRedis(cache, cachedCommentService, LockType.Semaphore);
                     break;
                 // Redis with Redlock.net
                 case 4:
-                    executionResult = await ExecuteUsingRedis(cachedCommentService, LockType.Redlock);
+                    executionResult = await ExecuteUsingRedis(cache, cachedCommentService, LockType.Redlock);
                     break;
                 default:
                     Console.WriteLine("Unable to use the select option, exiting...");
@@ -65,16 +71,17 @@ namespace DCP.Application
             }
 
             ResultsPrinter.PrintResults(executionResult);
+            _lazyConnection.Value.Dispose();
             await host.RunAsync();
         }
 
-        static async Task<ExecutionResult> ExecuteUsingRedis(CachedCommentService commentService, LockType lockType, bool alwaysUseOrigin = false)
+        static async Task<ExecutionResult> ExecuteUsingRedis(IDatabase cache, CachedCommentService commentService, LockType lockType, bool alwaysUseOrigin = false)
         {
             var stopwatch = new Stopwatch();
             stopwatch.Start();
 
             var requests = new ConcurrentBag<Task<ThreadExecutionResult>>();
-            Parallel.For(0, 200, _ => requests.Add(commentService.Execute(lockType, alwaysUseOrigin)));
+            Parallel.For(0, 200, _ => requests.Add(commentService.Execute(cache, lockType, alwaysUseOrigin)));
             var threadResults = await Task.WhenAll(requests);
 
             return new ExecutionResult
@@ -107,7 +114,7 @@ namespace DCP.Application
                 .ConfigureServices((_, services) =>
                 {
                     services.AddHttpClient();
-                    services.AddStackExchangeRedisCache(options => options.Configuration = "localhost");
+                    //services.AddStackExchangeRedisCache(options => options.Configuration = "localhost");
 
                     services.AddSingleton<CommentsRepository>();
                     services.AddSingleton<MemoryCommentService>();
