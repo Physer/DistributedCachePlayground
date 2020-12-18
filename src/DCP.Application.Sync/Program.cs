@@ -7,11 +7,11 @@ using System.Diagnostics;
 using System.Linq;
 using System.Threading.Tasks;
 
-namespace DCP.Application.Async
+namespace DCP.Application.Sync
 {
     public class Program
     {
-        static async Task Main(string[] args)
+        static void Main(string[] args)
         {
             // Build dependencies
             using IHost host = CreateHostBuilder(args).Build();
@@ -36,21 +36,9 @@ namespace DCP.Application.Async
             ExecutionResult executionResult = null;
             switch (parsedOption)
             {
-                // In-memory
+                // In-memory without locking
                 case 1:
-                    executionResult = await ExecuteUsingMemoryAsync(memoryCommentService);
-                    break;
-                // Redis without locking
-                case 2:
-                    executionResult = await ExecuteUsingRedisAsync(cachedCommentService, LockType.None);
-                    break;
-                // Redis with a Semaphore lock
-                case 3:
-                    executionResult = await ExecuteUsingRedisAsync(cachedCommentService, LockType.Semaphore);
-                    break;
-                // Redis with Redlock.net
-                case 4:
-                    executionResult = await ExecuteUsingRedisAsync(cachedCommentService, LockType.Redlock);
+                    executionResult = ExecuteUsingMemory(memoryCommentService);
                     break;
                 default:
                     Console.WriteLine("Unable to use the select option, exiting...");
@@ -62,40 +50,23 @@ namespace DCP.Application.Async
                 Console.WriteLine("Unable to retrieve the result, exiting...");
                 return;
             }
-
+            
             ResultsPrinter.PrintResults(executionResult);
-            await host.RunAsync();
+
+            host.Run();
         }
 
-        static async Task<ExecutionResult> ExecuteUsingRedisAsync(CachedCommentService commentService, LockType lockType, bool alwaysUseOrigin = false)
+        static ExecutionResult ExecuteUsingMemory(MemoryCommentService commentService)
         {
             var stopwatch = new Stopwatch();
             stopwatch.Start();
 
-            var requests = new ConcurrentBag<Task<ThreadExecutionResult>>();
-            Parallel.For(0, 200, _ => requests.Add(commentService.ExecuteAsync(lockType, alwaysUseOrigin)));
-            var threadResults = await Task.WhenAll(requests);
+            var requests = new ConcurrentBag<ThreadExecutionResult>();
+            Parallel.For(0, 200, _ => requests.Add(commentService.Execute()));
 
             return new ExecutionResult
             {
-                ThreadExecutionResults = threadResults,
-                ElapsedMilliseconds = stopwatch.ElapsedMilliseconds,
-                ResultTitle = $"Results using Redis cache with lock: {lockType}"
-            };
-        }
-
-        static async Task<ExecutionResult> ExecuteUsingMemoryAsync(MemoryCommentService commentService)
-        {
-            var stopwatch = new Stopwatch();
-            stopwatch.Start();
-
-            var requests = new ConcurrentBag<Task<ThreadExecutionResult>>();
-            Parallel.For(0, 200, _ => requests.Add(commentService.ExecuteAsync()));
-            var threadResults = await Task.WhenAll(requests);
-
-            return new ExecutionResult
-            {
-                ThreadExecutionResults = threadResults,
+                ThreadExecutionResults = requests,
                 ElapsedMilliseconds = stopwatch.ElapsedMilliseconds,
                 ResultTitle = $"Results using in-memory"
             };

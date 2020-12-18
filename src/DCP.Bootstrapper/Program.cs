@@ -102,7 +102,41 @@ namespace DCP.Bootstrapper
 
         static void RunSync()
         {
-            WriteLine("Not implemented yet, exiting...");
+            WriteLine("Please enter the number of your desired benchmark:");
+            WriteLine("1. Using in-memory references without locking");
+            WriteLine($"------------------------------------------------------------------------------");
+            if (!int.TryParse(ReadLine(), out var parsedBenchmarkNumber) || (parsedBenchmarkNumber < 1 && parsedBenchmarkNumber > 4))
+            {
+                WriteLine("You have selected an invalid number, please restart the program");
+                return;
+            }
+            WriteLine($"You have selected option {parsedBenchmarkNumber}");
+            WriteLine($"------------------------------------------------------------------------------");
+            WriteLine("Please enter the number of instances you would like to run this option with:");
+            if (!int.TryParse(ReadLine(), out var parsedInstanceAmount) || parsedBenchmarkNumber <= 0)
+            {
+                WriteLine("You have selected an invalid number, please restart the program");
+                return;
+            }
+            WriteLine($"------------------------------------------------------------------------------");
+            WriteLine("Commencing benchmarks...");
+
+            Parallel.For(0, parsedInstanceAmount, _ =>
+            {
+                var applicationProcess = new Process();
+                var applicationProjectFolder = Path.GetFullPath(Path.Combine(AppDomain.CurrentDomain.BaseDirectory,
+                                                                            @"..\..\..\..\DCP.Application.Sync"));
+                var processInfo = new ProcessStartInfo
+                {
+                    FileName = "dotnet",
+                    Arguments = $"run -p DCP.Application.Sync.csproj {parsedBenchmarkNumber}",
+                    WorkingDirectory = applicationProjectFolder,
+                    UseShellExecute = true
+                };
+                applicationProcess.StartInfo = processInfo;
+                applicationProcess.Start();
+                applicationProcess.WaitForExit();
+            });
         }
 
         static IHostBuilder CreateHostBuilder(string[] args) =>

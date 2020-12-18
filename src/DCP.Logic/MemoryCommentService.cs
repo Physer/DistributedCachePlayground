@@ -37,5 +37,19 @@ namespace DCP.Logic
                 _semaphore.Release();
             }
         }
+
+        public ThreadExecutionResult Execute()
+        {
+            var fromCache = false;
+            if (_comments is null || !_comments.Any())
+                _comments = _commentsRepository.GetComments();
+            else
+                fromCache = true;
+
+            return new ThreadExecutionResult
+            {
+                GotResultFromCache = fromCache
+            };
+        }
     }
 }
