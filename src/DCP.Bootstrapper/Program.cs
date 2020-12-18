@@ -51,11 +51,11 @@ namespace DCP.Bootstrapper
             {
                 var applicationProcess = new Process();
                 var applicationProjectFolder = Path.GetFullPath(Path.Combine(AppDomain.CurrentDomain.BaseDirectory,
-                                                                            @"..\..\..\..\DCP.Application"));
+                                                                            @"..\..\..\..\DCP.Application.Async"));
                 var processInfo = new ProcessStartInfo
                 {
                     FileName = "dotnet",
-                    Arguments = $"run -p DCP.Application.csproj {parsedBenchmarkNumber}",
+                    Arguments = $"run -p DCP.Application.Async.csproj {parsedBenchmarkNumber}",
                     WorkingDirectory = applicationProjectFolder,
                     UseShellExecute = true
                 };

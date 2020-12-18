@@ -2,7 +2,7 @@
 using System.Linq;
 using static System.Console;
 
-namespace DCP.Application
+namespace DCP.Application.Async
 {
     public static class ResultsPrinter
     {

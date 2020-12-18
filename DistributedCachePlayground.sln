@@ -3,11 +3,11 @@ Microsoft Visual Studio Solution File, Format Version 12.00
 # Visual Studio Version 16
 VisualStudioVersion = 16.0.30804.86
 MinimumVisualStudioVersion = 10.0.40219.1
-Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "DCP.Application", "src\DCP.Application\DCP.Application.csproj", "{D67AE4C6-3BCF-45BD-86AE-BA0E6A5FC806}"
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "DCP.Application.Async", "src\DCP.Application.Async\DCP.Application.Async.csproj", "{D67AE4C6-3BCF-45BD-86AE-BA0E6A5FC806}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "DCP.Bootstrapper", "src\DCP.Bootstrapper\DCP.Bootstrapper.csproj", "{09911C33-7C26-4C0C-9884-BCB403BAF84F}"
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "DCP.Bootstrapper", "src\DCP.Bootstrapper\DCP.Bootstrapper.csproj", "{09911C33-7C26-4C0C-9884-BCB403BAF84F}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "DCP.Logic", "src\DCP.Logic\DCP.Logic.csproj", "{C8DA2AAB-5AD0-475F-8093-F6A04F9CFD68}"
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "DCP.Logic", "src\DCP.Logic\DCP.Logic.csproj", "{C8DA2AAB-5AD0-475F-8093-F6A04F9CFD68}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution

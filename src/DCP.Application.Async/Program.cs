@@ -7,7 +7,7 @@ using System.Diagnostics;
 using System.Linq;
 using System.Threading.Tasks;
 
-namespace DCP.Application
+namespace DCP.Application.Async
 {
     public class Program
     {
@@ -26,7 +26,7 @@ namespace DCP.Application
                 return;
             }
 
-            if(!int.TryParse(args.First(), out var parsedOption))
+            if (!int.TryParse(args.First(), out var parsedOption))
             {
                 Console.WriteLine("Invalid option selected, exiting...");
                 return;
@@ -34,7 +34,7 @@ namespace DCP.Application
 
             // Execute application flow
             ExecutionResult executionResult = null;
-            switch(parsedOption)
+            switch (parsedOption)
             {
                 // In-memory
                 case 1:
@@ -57,7 +57,7 @@ namespace DCP.Application
                     return;
             }
 
-            if(executionResult is null)
+            if (executionResult is null)
             {
                 Console.WriteLine("Unable to retrieve the result, exiting...");
                 return;
