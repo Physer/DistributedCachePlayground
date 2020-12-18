@@ -25,37 +25,37 @@ namespace DCP.Logic
             _commentsRepository = commentsRepository;
         }
 
-        public async Task<ThreadExecutionResult> Execute(LockType lockType, bool alwaysUseOrigin = false)
+        public async Task<ThreadExecutionResult> ExecuteAsync(LockType lockType, bool alwaysUseOrigin = false)
         {
             if (alwaysUseOrigin)
-                return await ExecuteFromOrigin();
+                return await ExecuteFromOriginAsync();
 
             return lockType switch
             {
-                LockType.Redlock => await ExecuteWithRedlock(),
-                LockType.Semaphore => await ExecuteWithSemaphore(),
-                LockType.None => await ExecuteWithoutLock(),
+                LockType.Redlock => await ExecuteWithRedlockAsync(),
+                LockType.Semaphore => await ExecuteWithSemaphoreAsync(),
+                LockType.None => await ExecuteWithoutLockAsync(),
                 _ => throw new Exception("No valid lock type found!"),
             };
         }
 
-        private async Task<ThreadExecutionResult> ExecuteFromOrigin()
+        private async Task<ThreadExecutionResult> ExecuteFromOriginAsync()
         {
-            _ = await _commentsRepository.GetComments();
+            _ = await _commentsRepository.GetCommentsAsync();
             return new ThreadExecutionResult
             {
                 GotResultFromCache = false
             };
         }
 
-        private async Task<ThreadExecutionResult> ExecuteWithoutLock() => await Execute();
+        private async Task<ThreadExecutionResult> ExecuteWithoutLockAsync() => await ExecuteAsync();
 
-        private async Task<ThreadExecutionResult> ExecuteWithSemaphore()
+        private async Task<ThreadExecutionResult> ExecuteWithSemaphoreAsync()
         {
             await _semaphoreLock.WaitAsync();
             try
             {
-                return await Execute();
+                return await ExecuteAsync();
             }
             finally
             {
@@ -63,7 +63,7 @@ namespace DCP.Logic
             }
         }
 
-        private async Task<ThreadExecutionResult> ExecuteWithRedlock()
+        private async Task<ThreadExecutionResult> ExecuteWithRedlockAsync()
         {
             var lockKey = "comments-lock";
             var expiry = TimeSpan.FromSeconds(30);
@@ -72,21 +72,21 @@ namespace DCP.Logic
 
             using var redlock = await InitializedRedlockFactory.Instance.Factory.CreateLockAsync(lockKey, expiry, wait, retry);
             if (redlock.IsAcquired)
-                return await Execute();
+                return await ExecuteAsync();
 
             return new ThreadExecutionResult();
         }
 
-        private async Task<ThreadExecutionResult> Execute()
+        private async Task<ThreadExecutionResult> ExecuteAsync()
         {
             var fromCache = false;
-            var comments = await GetCommentsFromCache();
+            var comments = await GetCommentsFromCacheAsync();
             if (comments is null || !comments.Any())
             {
-                comments = await _commentsRepository.GetComments();
+                comments = await _commentsRepository.GetCommentsAsync();
                 if (comments is null || !comments.Any())
                     throw new Exception("No comments found!");
-                await SetCommentsInCache(comments);
+                await SetCommentsInCacheAsync(comments);
             }
             else
                 fromCache = true;
@@ -99,7 +99,7 @@ namespace DCP.Logic
             };
         }
 
-        private async Task<IEnumerable<Comment>> GetCommentsFromCache()
+        private async Task<IEnumerable<Comment>> GetCommentsFromCacheAsync()
         {
             var cacheData = await _distributedCache.GetAsync(_cacheKey);
             if (cacheData is null || !cacheData.Any())
@@ -116,7 +116,7 @@ namespace DCP.Logic
             return deserializedComments;
         }
 
-        private async Task SetCommentsInCache(IEnumerable<Comment> comments)
+        private async Task SetCommentsInCacheAsync(IEnumerable<Comment> comments)
         {
             var serializedComments = JsonConvert.SerializeObject(comments);
             await _distributedCache.SetAsync(_cacheKey, Encoding.UTF8.GetBytes(serializedComments));

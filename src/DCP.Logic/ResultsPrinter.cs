@@ -1,8 +1,7 @@
-﻿using DCP.Logic;
-using System.Linq;
+﻿using System.Linq;
 using static System.Console;
 
-namespace DCP.Application
+namespace DCP.Logic
 {
     public static class ResultsPrinter
     {

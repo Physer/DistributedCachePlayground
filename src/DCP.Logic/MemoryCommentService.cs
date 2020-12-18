@@ -16,14 +16,14 @@ namespace DCP.Logic
         }
 
         private IEnumerable<Comment> _comments;
-        public async Task<ThreadExecutionResult> Execute()
+        public async Task<ThreadExecutionResult> ExecuteAsync()
         {
             await _semaphore.WaitAsync();
             try
             {
                 var fromCache = false;
                 if (_comments is null || !_comments.Any())
-                    _comments = await _commentsRepository.GetComments();
+                    _comments = await _commentsRepository.GetCommentsAsync();
                 else
                     fromCache = true;
 
@@ -36,6 +36,20 @@ namespace DCP.Logic
             {
                 _semaphore.Release();
             }
+        }
+
+        public ThreadExecutionResult Execute()
+        {
+            var fromCache = false;
+            if (_comments is null || !_comments.Any())
+                _comments = _commentsRepository.GetComments();
+            else
+                fromCache = true;
+
+            return new ThreadExecutionResult
+            {
+                GotResultFromCache = fromCache
+            };
         }
     }
 }
