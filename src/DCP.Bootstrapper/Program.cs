@@ -21,6 +21,45 @@ namespace DCP.Bootstrapper
             var distributedCache = host.Services.GetRequiredService<IDistributedCache>();
             var cacheKey = "comments";
 
+            WriteLine("Cleaning cache from potential previous runs...");
+            await distributedCache.RemoveAsync(cacheKey);
+            WriteLine($"------------------------------------------------------------------------------");
+
+            WriteLine("Please select how to run the benchmark:");
+            WriteLine("1. Asynchronously");
+            WriteLine("2. Synchronously");
+            if (!int.TryParse(ReadLine(), out var parsedSynchronizationOption) || (parsedSynchronizationOption < 1 && parsedSynchronizationOption > 2))
+            {
+                WriteLine("You have selected an invalid number, please restart the program");
+                return;
+            }
+            WriteLine($"You have selected option {parsedSynchronizationOption}");
+            WriteLine($"------------------------------------------------------------------------------");
+
+            switch (parsedSynchronizationOption)
+            {
+                case 1:
+                    RunAsync();
+                    break;
+                case 2:
+                    RunSync();
+                    break;
+                default:
+                    WriteLine("No valid synchronization option selected, exiting...");
+                    break;
+            }
+            WriteLine($"------------------------------------------------------------------------------");
+
+            WriteLine("Cleaning up cache after running...");
+            await distributedCache.RemoveAsync(cacheKey);
+            WriteLine($"------------------------------------------------------------------------------");
+
+            WriteLine("The bootstrapper has finished its work, press any key to exit...");
+            ReadKey();
+        }
+
+        static void RunAsync()
+        {
             WriteLine("Please enter the number of your desired benchmark:");
             WriteLine("1. Using in-memory references with a semaphore lock");
             WriteLine("2. Using Redis without locking");
@@ -43,11 +82,7 @@ namespace DCP.Bootstrapper
             WriteLine($"------------------------------------------------------------------------------");
             WriteLine("Commencing benchmarks...");
 
-            WriteLine("Cleaning cache from potential previous runs...");
-            await distributedCache.RemoveAsync(cacheKey);
-
-
-            Parallel.For(0, parsedInstanceAmount, _ => 
+            Parallel.For(0, parsedInstanceAmount, _ =>
             {
                 var applicationProcess = new Process();
                 var applicationProjectFolder = Path.GetFullPath(Path.Combine(AppDomain.CurrentDomain.BaseDirectory,
@@ -63,12 +98,11 @@ namespace DCP.Bootstrapper
                 applicationProcess.Start();
                 applicationProcess.WaitForExit();
             });
+        }
 
-            WriteLine("Cleaning up cache after running...");
-            await distributedCache.RemoveAsync(cacheKey);
-
-            WriteLine("The bootstrapper has finished its work, press any key to exit...");
-            ReadKey();
+        static void RunSync()
+        {
+            WriteLine("Not implemented yet, exiting...");
         }
 
         static IHostBuilder CreateHostBuilder(string[] args) =>
