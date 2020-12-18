@@ -1,37 +1,68 @@
+
 # Distributed Cache Playground
 
 ## Introduction
-This project is showcasing the advantages and disadvantages of using Redis as your caching mechanism including ways to implement locking on these requests.
-
-## Run instructions
-In order to run the application you'll need to have Redis running locally.
-If you do not use localhost as your connection endpoint, please adjust it accordingly in IHostBuilder configuration section in Program.cs (CreateHostBuilder).
-
-The application leverages [JSONPlaceholder](https://jsonplaceholder.typicode.com/) as a JSON data source
+The Distributed Cache Playground showcases different implementations and their performance for retrieving data concurrently through a caching implementation.
 
 ## Application details
-### General details
-The distributed cache playground project is a .NET 5.0 project written in C#.
-It's a console application, making use of the following libraries:
- - StackExchange's Redis library
+
+### Project information
+The project is a console application built using .NET 5.0 in C#.
+There are two console applications present in the solution:
+
+ - DCP.Application
+ - DCP.Bootstrapper
+
+In order to simulate the event of multiple instances hitting multiple threads at the same time, a bootstrapper application is able to kickstart multiple console applications.
+
+### Dependency information
+One of the caches used in this application is Redis. In order to run the application, a working instance of Redis is required. The application defaults to localhost. If you are running Redis at a different endpoint, adjust the code where necessary.
+
+**Used libraries and frameworks:**
  - Microsoft's StackExchange extensions
  - Microsoft's Dependency Injection
  - Microsoft's Hosting extensions
  - Microsoft's HTTP extensions for leveraging the .NET HTTP Client
  - Newtonsoft's JSON framework
 
-### Code flow
-The application's entrypoint is Program.cs.
-This file contains a Main method. This methods executes the console application.
+**External services:**
+ - The application leverages [JSONPlaceholder](https://jsonplaceholder.typicode.com/) as a JSON data source
+ - Redis
 
-The application sets up its dependencies required for executing the code.
-Next up is cleaning the cache of any remaining cache keys from previous runs.
+### References
+ - [Microsoft's documentation about Semaphore locking](https://docs.microsoft.com/en-us/dotnet/standard/threading/semaphore-and-semaphoreslim)
+ - [Redis.io](https://redis.io/)
+ - [Redlock.net by Sam Cook](https://github.com/samcook/RedLock.net)
+ - [JSONPlaceholder](https://jsonplaceholder.typicode.com/)
 
-The code does 2 runs. The first run is without any form of locking, the second run uses a Semaphore locking algorithm. ([Microsoft's documentation about Semaphore locking](https://docs.microsoft.com/en-us/dotnet/standard/threading/semaphore-and-semaphoreslim))
+## How to run the application
 
-For every run, 200 threads in parallel try to retrieve the comments from the Redis cache. If the comments can't be located in the Redis cache, the thread will do an HTTP request to a JSON source with 500 comments and put them in the Redis cache.
+ 1. Clone or download the source code
+ 2. Make sure Redis is running
+ 3. Restore the dependencies and build the solution
+ 4. Run the **DCP.Bootstrapper** application
+
+## Benchmarking
+A benchmark is done by retrieving 500 comments from a cache implementation. If there is no cached data, a request is done to a live JSON data source.
+
+When starting the DCP.Bootstrapper application, it presents you with options to configure your current run.
+The following options are available:
+ - In-memory caching using a Semaphore Slim lock
+ - Redis without any locking
+ - Redis using a Semaphore Slim lock
+ - Redis using Redlock as distributed locking through Redis itself
+
+After choosing the desired option, you can select the number of instances to run. Enter the amount of desired instances here. Note that more instances consume more resources.
+
+Every instance will open a new console window running the selected option.
+One instance fires off 200 threads in parallel and every thread does the following:
+
+ 1. Try to retrieve the cached comments from a cache
+ 2. If the comments are not present in the cache, retrieve them from the origin.
+ 3. Place the retrieved comments (500 items) in the specified cache
+
+Depending on your chosen option, locking might be applied over multiple threads.
 
 ## Results
-The application outputs the results in a table in your console output.
-These results show the amount of threads going to origin, going to cache and the total time elapsed in milliseconds.
+Every instance will show the amount of threads going to origin, going to cache and the total time elapsed in milliseconds in the console window.
 ```
