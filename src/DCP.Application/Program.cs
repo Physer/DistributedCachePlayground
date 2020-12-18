@@ -38,19 +38,19 @@ namespace DCP.Application
             {
                 // In-memory
                 case 1:
-                    executionResult = await ExecuteUsingMemory(memoryCommentService);
+                    executionResult = await ExecuteUsingMemoryAsync(memoryCommentService);
                     break;
                 // Redis without locking
                 case 2:
-                    executionResult = await ExecuteUsingRedis(cachedCommentService, LockType.None);
+                    executionResult = await ExecuteUsingRedisAsync(cachedCommentService, LockType.None);
                     break;
                 // Redis with a Semaphore lock
                 case 3:
-                    executionResult = await ExecuteUsingRedis(cachedCommentService, LockType.Semaphore);
+                    executionResult = await ExecuteUsingRedisAsync(cachedCommentService, LockType.Semaphore);
                     break;
                 // Redis with Redlock.net
                 case 4:
-                    executionResult = await ExecuteUsingRedis(cachedCommentService, LockType.Redlock);
+                    executionResult = await ExecuteUsingRedisAsync(cachedCommentService, LockType.Redlock);
                     break;
                 default:
                     Console.WriteLine("Unable to use the select option, exiting...");
@@ -67,13 +67,13 @@ namespace DCP.Application
             await host.RunAsync();
         }
 
-        static async Task<ExecutionResult> ExecuteUsingRedis(CachedCommentService commentService, LockType lockType, bool alwaysUseOrigin = false)
+        static async Task<ExecutionResult> ExecuteUsingRedisAsync(CachedCommentService commentService, LockType lockType, bool alwaysUseOrigin = false)
         {
             var stopwatch = new Stopwatch();
             stopwatch.Start();
 
             var requests = new ConcurrentBag<Task<ThreadExecutionResult>>();
-            Parallel.For(0, 200, _ => requests.Add(commentService.Execute(lockType, alwaysUseOrigin)));
+            Parallel.For(0, 200, _ => requests.Add(commentService.ExecuteAsync(lockType, alwaysUseOrigin)));
             var threadResults = await Task.WhenAll(requests);
 
             return new ExecutionResult
@@ -84,13 +84,13 @@ namespace DCP.Application
             };
         }
 
-        static async Task<ExecutionResult> ExecuteUsingMemory(MemoryCommentService commentService)
+        static async Task<ExecutionResult> ExecuteUsingMemoryAsync(MemoryCommentService commentService)
         {
             var stopwatch = new Stopwatch();
             stopwatch.Start();
 
             var requests = new ConcurrentBag<Task<ThreadExecutionResult>>();
-            Parallel.For(0, 200, _ => requests.Add(commentService.Execute()));
+            Parallel.For(0, 200, _ => requests.Add(commentService.ExecuteAsync()));
             var threadResults = await Task.WhenAll(requests);
 
             return new ExecutionResult
