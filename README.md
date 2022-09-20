@@ -7,7 +7,7 @@ The Distributed Cache Playground showcases different implementations and their p
 ## Application details
 
 ### Project information
-The project is a console application built using .NET 5.0 in C#.
+The project is a console application built using .NET 6.0 in C#.
 There are two console applications present in the solution:
 
  - DCP.Application
@@ -65,4 +65,3 @@ Depending on your chosen option, locking might be applied over multiple threads.
 
 ## Results
 Every instance will show the amount of threads going to origin, going to cache and the total time elapsed in milliseconds in the console window.
-```
